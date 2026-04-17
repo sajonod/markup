@@ -149,9 +149,12 @@ export default function EditorScreen() {
       return;
     }
     try {
-      const dir = FileSystem.documentDirectory;
-      if (!dir) throw new Error("No document directory");
-      const filePath = dir + file.name;
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) throw new Error("No cache directory available");
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = cacheDir + safeName;
+
       await FileSystem.writeAsStringAsync(filePath, content, {
         encoding: FileSystem.EncodingType.UTF8,
       });
@@ -160,15 +163,19 @@ export default function EditorScreen() {
       if (canShare) {
         await Sharing.shareAsync(filePath, {
           mimeType: "text/plain",
-          dialogTitle: `Save ${file.name}`,
+          dialogTitle: `Save "${file.name}"`,
           UTI: "public.plain-text",
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert("Saved", `File saved to app documents as "${file.name}".`);
+        Alert.alert(
+          "Saved",
+          `"${file.name}" has been written to the app cache. Sharing is not available on this device.`
+        );
       }
-    } catch {
-      Alert.alert("Error", "Could not save the file. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Save failed", msg || "Could not save the file. Please try again.");
     }
   };
 

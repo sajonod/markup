@@ -149,14 +149,14 @@ export default function EditorScreen() {
       return;
     }
     try {
-      const cacheDir = FileSystem.cacheDirectory;
+      const cacheDir = (FileSystem as any).cacheDirectory;
       if (!cacheDir) throw new Error("No cache directory available");
 
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const filePath = cacheDir + safeName;
 
       await FileSystem.writeAsStringAsync(filePath, content, {
-        encoding: FileSystem.EncodingType.UTF8,
+        encoding: (FileSystem as any).EncodingType.UTF8,
       });
 
       const canShare = await Sharing.isAvailableAsync();

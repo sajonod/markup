@@ -42,4 +42,6 @@ const colors = {
   radius: 14,
 };
 
+export type ColorPalette = typeof colors.light;
+
 export default colors;

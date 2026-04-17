@@ -1,4 +1,6 @@
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -15,15 +17,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeAdBanner } from "@/components/NativeAdBanner";
+import { BottomAdBanner } from "@/components/BottomAdBanner";
 import { FileRow } from "@/components/FileRow";
 import { useFiles } from "@/context/FilesContext";
 import { useColors } from "@/hooks/useColors";
-import { formatTimeAgo } from "@/utils/markdown";
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { files, createFile, deleteFile, setActiveFileId, renameFile } = useFiles();
+  const { files, createFile, deleteFile, setActiveFileId, renameFile, importFile } = useFiles();
   const [search, setSearch] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -46,18 +48,56 @@ export default function HomeScreen() {
     router.push("/editor");
   };
 
+  const handleOpenFromDevice = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported", "File picker is only available on iOS and Android.");
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["text/plain", "text/markdown", "*/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      const name = asset.name;
+
+      if (
+        !name.endsWith(".md") &&
+        !name.endsWith(".markdown") &&
+        !name.endsWith(".txt")
+      ) {
+        Alert.alert("Unsupported file", "Please open a .md, .markdown, or .txt file.");
+        return;
+      }
+
+      const content = await FileSystem.readAsStringAsync(asset.uri);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const newFile = importFile(name, content);
+      setActiveFileId(newFile.id);
+      router.push("/editor");
+    } catch {
+      Alert.alert("Error", "Could not open the file. Please try again.");
+    }
+  };
+
   const handleRename = (id: string, currentName: string) => {
-    Alert.prompt(
-      "Rename File",
-      "Enter a new name",
-      (newName) => {
-        if (newName && newName.trim()) {
-          renameFile(id, newName.trim());
-        }
-      },
-      "plain-text",
-      currentName
-    );
+    if (Platform.OS === "ios") {
+      Alert.prompt(
+        "Rename File",
+        "Enter a new name",
+        (newName) => {
+          if (newName && newName.trim()) renameFile(id, newName.trim());
+        },
+        "plain-text",
+        currentName
+      );
+    } else {
+      Alert.alert("Rename", `Renaming "${currentName}" is supported on iOS. On Android, edit the filename from the editor menu.`);
+    }
   };
 
   const s = createStyles(colors, topPad, bottomPad);
@@ -71,13 +111,13 @@ export default function HomeScreen() {
           <Text style={s.appTitle}>Vault</Text>
           <Text style={s.appSubtitle}>Offline markdown files</Text>
         </View>
-        <TouchableOpacity style={s.newBtn} onPress={handleNewFile}>
-          <Feather name="plus" size={22} color={colors.primary} />
+        <TouchableOpacity style={s.iconBtn} onPress={handleNewFile}>
+          <Ionicons name="add" size={26} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={s.searchContainer}>
-        <Feather name="search" size={16} color={colors.mutedForeground} style={s.searchIcon} />
+        <Ionicons name="search" size={16} color={colors.mutedForeground} />
         <TextInput
           style={[s.searchInput, { color: colors.foreground }]}
           placeholder="Search files..."
@@ -88,28 +128,28 @@ export default function HomeScreen() {
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")}>
-            <Feather name="x" size={16} color={colors.mutedForeground} />
+            <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
           </TouchableOpacity>
         )}
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.openSection}>
-          <TouchableOpacity style={s.openFromDevice} onPress={() => Alert.alert("File Picker", "Native file picker would open here. In a production build you can use expo-document-picker to open .md, .txt, and .markdown files from your device.")}>
+          <TouchableOpacity style={s.openFromDevice} onPress={handleOpenFromDevice}>
             <View style={s.openFileLeft}>
-              <Feather name="folder" size={18} color={colors.primary} />
+              <Ionicons name="folder-open" size={20} color={colors.primary} />
               <View>
                 <Text style={[s.openFileTitle, { color: colors.foreground }]}>Open from device</Text>
                 <Text style={[s.openFileDetail, { color: colors.mutedForeground }]}>.md · .txt · .markdown</Text>
               </View>
             </View>
             <View style={s.filesBadge}>
-              <Text style={s.filesBadgeText}>Files</Text>
+              <Text style={s.filesBadgeText}>Browse</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -118,12 +158,12 @@ export default function HomeScreen() {
 
         {filteredFiles.length === 0 && search.length > 0 ? (
           <View style={s.emptyState}>
-            <Feather name="search" size={36} color={colors.mutedForeground} />
+            <Ionicons name="search" size={36} color={colors.mutedForeground} />
             <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No files match "{search}"</Text>
           </View>
         ) : filteredFiles.length === 0 ? (
           <View style={s.emptyState}>
-            <Feather name="file-text" size={36} color={colors.mutedForeground} />
+            <Ionicons name="document-text-outline" size={36} color={colors.mutedForeground} />
             <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No files yet. Tap + to create one.</Text>
           </View>
         ) : (
@@ -156,8 +196,15 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={[s.fab, { bottom: bottomPad + 24 }]} onPress={handleNewFile}>
-        <Feather name="plus" size={24} color={colors.primaryForeground} />
+      {/* Bottom ad banner — sits above system nav bar */}
+      <BottomAdBanner bottomInset={bottomPad} />
+
+      {/* FAB — above the banner */}
+      <TouchableOpacity
+        style={[s.fab, { bottom: bottomPad + 64 }]}
+        onPress={handleNewFile}
+      >
+        <Ionicons name="add" size={28} color={colors.primaryForeground} />
       </TouchableOpacity>
     </View>
   );
@@ -192,7 +239,7 @@ const createStyles = (
       color: colors.mutedForeground,
       marginTop: 2,
     },
-    newBtn: {
+    iconBtn: {
       width: 40,
       height: 40,
       alignItems: "center",
@@ -211,7 +258,6 @@ const createStyles = (
       paddingVertical: 10,
       gap: 10,
     },
-    searchIcon: {},
     searchInput: {
       flex: 1,
       fontSize: 15,
@@ -247,7 +293,7 @@ const createStyles = (
     filesBadge: {
       backgroundColor: colors.primary,
       borderRadius: 999,
-      paddingHorizontal: 12,
+      paddingHorizontal: 14,
       paddingVertical: 6,
     },
     filesBadgeText: {

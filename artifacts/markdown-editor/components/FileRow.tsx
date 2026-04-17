@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React from "react";
 import {
@@ -19,13 +19,7 @@ interface Props {
   onRename: () => void;
 }
 
-function getFileIcon(name: string) {
-  if (name.endsWith(".md") || name.endsWith(".markdown")) return "file-text";
-  if (name.endsWith(".txt")) return "file";
-  return "file";
-}
-
-function getExtColor(name: string, primary: string) {
+function getDotColor(name: string, primary: string): string {
   if (name.endsWith(".md") || name.endsWith(".markdown")) return primary;
   if (name.endsWith(".txt")) return "#fbbf24";
   return "#93c5fd";
@@ -33,6 +27,7 @@ function getExtColor(name: string, primary: string) {
 
 export function FileRow({ file, onPress, onDelete, onRename }: Props) {
   const colors = useColors();
+  const dotColor = getDotColor(file.name, colors.primary);
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -52,8 +47,6 @@ export function FileRow({ file, onPress, onDelete, onRename }: Props) {
     ]);
   };
 
-  const dotColor = getExtColor(file.name, colors.primary);
-
   return (
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: colors.border }]}
@@ -70,7 +63,7 @@ export function FileRow({ file, onPress, onDelete, onRename }: Props) {
           {formatTimeAgo(file.updatedAt)} · {file.size} KB
         </Text>
       </View>
-      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+      <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
     </TouchableOpacity>
   );
 }

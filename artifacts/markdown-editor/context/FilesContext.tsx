@@ -29,6 +29,7 @@ interface FilesContextValue {
   activeFileId: string | null;
   setActiveFileId: (id: string | null) => void;
   createFile: (name?: string) => FileEntry;
+  importFile: (name: string, content: string) => FileEntry;
   saveFile: (id: string, content: string) => void;
   deleteFile: (id: string) => void;
   renameFile: (id: string, name: string) => void;
@@ -145,6 +146,27 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
     [persist]
   );
 
+  const importFile = useCallback(
+    (name: string, content: string): FileEntry => {
+      const newFile: FileEntry = {
+        id: generateId(),
+        name,
+        content,
+        size: formatSize(content.length),
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+        versions: [],
+      };
+      setFiles((prev) => {
+        const updated = [newFile, ...prev];
+        persist(updated);
+        return updated;
+      });
+      return newFile;
+    },
+    [persist]
+  );
+
   const saveFile = useCallback(
     (id: string, content: string) => {
       setFiles((prev) => {
@@ -245,6 +267,7 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         activeFileId,
         setActiveFileId: handleSetActiveFileId,
         createFile,
+        importFile,
         saveFile,
         deleteFile,
         renameFile,

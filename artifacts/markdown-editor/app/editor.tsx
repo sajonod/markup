@@ -1,6 +1,8 @@
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -36,6 +38,7 @@ export default function EditorScreen() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   useEffect(() => {
     if (file) setContent(file.content);
@@ -139,8 +142,42 @@ export default function EditorScreen() {
     router.back();
   };
 
+  const handleSaveToDevice = async () => {
+    if (!file) return;
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported", "Save to device is only available on iOS and Android.");
+      return;
+    }
+    try {
+      const dir = FileSystem.documentDirectory;
+      if (!dir) throw new Error("No document directory");
+      const filePath = dir + file.name;
+      await FileSystem.writeAsStringAsync(filePath, content, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: "text/plain",
+          dialogTitle: `Save ${file.name}`,
+          UTI: "public.plain-text",
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("Saved", `File saved to app documents as "${file.name}".`);
+      }
+    } catch {
+      Alert.alert("Error", "Could not save the file. Please try again.");
+    }
+  };
+
   const handleMenu = () => {
-    Alert.alert(file?.name ?? "Options", "", [
+    Alert.alert(file?.name ?? "Options", "File actions", [
+      {
+        text: "Save to device / Share",
+        onPress: handleSaveToDevice,
+      },
       {
         text: "Version History",
         onPress: () => router.push("/history"),
@@ -151,7 +188,7 @@ export default function EditorScreen() {
 
   if (!file) {
     return (
-      <View style={[styles.noFile, { backgroundColor: colors.background }]}>
+      <View style={[{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }]}>
         <Text style={{ color: colors.mutedForeground }}>No file selected</Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={{ color: colors.primary, marginTop: 12 }}>Go back</Text>
@@ -160,17 +197,17 @@ export default function EditorScreen() {
     );
   }
 
-  const s = createStyles(colors, topPad);
+  const s = createStyles(colors, topPad, bottomPad);
 
   return (
     <KeyboardAvoidingView
-      style={[s.root]}
+      style={s.root}
       behavior="padding"
       keyboardVerticalOffset={0}
     >
       <View style={s.topbar}>
-        <TouchableOpacity onPress={handleBack} style={s.iconBtn}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        <TouchableOpacity onPress={handleBack} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
 
         <View style={s.titleBlock}>
@@ -184,15 +221,20 @@ export default function EditorScreen() {
           <TouchableOpacity
             style={s.iconBtn}
             onPress={() => setMode(mode === "write" ? "preview" : "write")}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Feather
-              name={mode === "write" ? "eye" : "edit-2"}
-              size={20}
+            <Ionicons
+              name={mode === "write" ? "eye-outline" : "create-outline"}
+              size={22}
               color={colors.foreground}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={s.iconBtn} onPress={handleMenu}>
-            <Feather name="more-horizontal" size={22} color={colors.foreground} />
+          <TouchableOpacity
+            style={s.iconBtn}
+            onPress={handleMenu}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.foreground} />
           </TouchableOpacity>
         </View>
       </View>
@@ -234,6 +276,8 @@ export default function EditorScreen() {
             placeholderTextColor={colors.mutedForeground}
           />
           <MarkdownToolbar onAction={handleToolbarAction} />
+          {/* Bottom safe area spacer so toolbar clears nav bar */}
+          <View style={{ height: bottomPad, backgroundColor: colors.card }} />
         </>
       )}
 
@@ -270,7 +314,7 @@ function OutlineView({
   if (headings.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <Feather name="list" size={36} color={colors.mutedForeground} />
+        <Ionicons name="list-outline" size={36} color={colors.mutedForeground} />
         <Text style={{ color: colors.mutedForeground, fontSize: 15 }}>
           No headings found
         </Text>
@@ -313,30 +357,26 @@ function OutlineView({
 
 const createStyles = (
   colors: ReturnType<typeof useColors>,
-  topPad: number
+  topPad: number,
+  bottomPad: number
 ) =>
   StyleSheet.create({
     root: {
       flex: 1,
       backgroundColor: colors.background,
     },
-    noFile: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     topbar: {
       flexDirection: "row",
       alignItems: "center",
       paddingTop: topPad + 8,
       paddingBottom: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },
     iconBtn: {
-      width: 38,
-      height: 38,
+      width: 40,
+      height: 40,
       alignItems: "center",
       justifyContent: "center",
     },

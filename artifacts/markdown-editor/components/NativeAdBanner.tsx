@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 
 interface Props {
@@ -23,7 +23,7 @@ export function NativeAdBanner({ title = "Top Writing Tools for 2024", subtitle 
       activeOpacity={0.8}
     >
       <View style={styles.starContainer}>
-        <Feather name="star" size={18} color="#f59e0b" />
+        <Ionicons name="star" size={18} color="#f59e0b" />
       </View>
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>

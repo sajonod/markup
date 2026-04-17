@@ -1,0 +1,26 @@
+kind = "mobile"
+previewPath = "/"
+title = "Minimalist Markdown Editor"
+version = "1.0.0"
+id = "artifacts/markdown-editor"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+name = "expo"
+paths = [ "/" ]
+localPort = 24588
+
+[services.development]
+run = "pnpm --filter @workspace/markdown-editor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/markdown-editor", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/markdown-editor", "run", "serve" ]
+
+[services.env]
+PORT = "24588"
+BASE_PATH = "/"

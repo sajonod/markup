@@ -1,0 +1,327 @@
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NativeAdBanner } from "@/components/NativeAdBanner";
+import { FileRow } from "@/components/FileRow";
+import { useFiles } from "@/context/FilesContext";
+import { useColors } from "@/hooks/useColors";
+import { formatTimeAgo } from "@/utils/markdown";
+
+export default function HomeScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { files, createFile, deleteFile, setActiveFileId, renameFile } = useFiles();
+  const [search, setSearch] = useState("");
+
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const filteredFiles = files.filter((f) =>
+    f.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleOpenFile = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveFileId(id);
+    router.push("/editor");
+  };
+
+  const handleNewFile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const file = createFile("Untitled.md");
+    setActiveFileId(file.id);
+    router.push("/editor");
+  };
+
+  const handleRename = (id: string, currentName: string) => {
+    Alert.prompt(
+      "Rename File",
+      "Enter a new name",
+      (newName) => {
+        if (newName && newName.trim()) {
+          renameFile(id, newName.trim());
+        }
+      },
+      "plain-text",
+      currentName
+    );
+  };
+
+  const s = createStyles(colors, topPad, bottomPad);
+
+  return (
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" />
+
+      <View style={s.header}>
+        <View>
+          <Text style={s.appTitle}>Vault</Text>
+          <Text style={s.appSubtitle}>Offline markdown files</Text>
+        </View>
+        <TouchableOpacity style={s.newBtn} onPress={handleNewFile}>
+          <Feather name="plus" size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={s.searchContainer}>
+        <Feather name="search" size={16} color={colors.mutedForeground} style={s.searchIcon} />
+        <TextInput
+          style={[s.searchInput, { color: colors.foreground }]}
+          placeholder="Search files..."
+          placeholderTextColor={colors.mutedForeground}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch("")}>
+            <Feather name="x" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomPad + 100 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={s.openSection}>
+          <TouchableOpacity style={s.openFromDevice} onPress={() => Alert.alert("File Picker", "Native file picker would open here. In a production build you can use expo-document-picker to open .md, .txt, and .markdown files from your device.")}>
+            <View style={s.openFileLeft}>
+              <Feather name="folder" size={18} color={colors.primary} />
+              <View>
+                <Text style={[s.openFileTitle, { color: colors.foreground }]}>Open from device</Text>
+                <Text style={[s.openFileDetail, { color: colors.mutedForeground }]}>.md · .txt · .markdown</Text>
+              </View>
+            </View>
+            <View style={s.filesBadge}>
+              <Text style={s.filesBadgeText}>Files</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={s.sectionLabel}>Recent</Text>
+
+        {filteredFiles.length === 0 && search.length > 0 ? (
+          <View style={s.emptyState}>
+            <Feather name="search" size={36} color={colors.mutedForeground} />
+            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No files match "{search}"</Text>
+          </View>
+        ) : filteredFiles.length === 0 ? (
+          <View style={s.emptyState}>
+            <Feather name="file-text" size={36} color={colors.mutedForeground} />
+            <Text style={[s.emptyText, { color: colors.mutedForeground }]}>No files yet. Tap + to create one.</Text>
+          </View>
+        ) : (
+          filteredFiles.map((file, index) => {
+            const isAdSlot = index === 2;
+            return (
+              <React.Fragment key={file.id}>
+                {isAdSlot && <NativeAdBanner />}
+                <FileRow
+                  file={file}
+                  onPress={() => handleOpenFile(file.id)}
+                  onDelete={() => deleteFile(file.id)}
+                  onRename={() => handleRename(file.id, file.name)}
+                />
+              </React.Fragment>
+            );
+          })
+        )}
+
+        <View style={s.privacyCard}>
+          <View style={s.privacyRow}>
+            <View style={s.offlineBadge}>
+              <Text style={s.offlineBadgeText}>Offline</Text>
+            </View>
+            <Text style={[s.privacyTitle, { color: colors.foreground }]}>Nothing leaves your device</Text>
+          </View>
+          <Text style={[s.privacyDesc, { color: colors.mutedForeground }]}>
+            No account, no sync lock-in, no network dependency.
+          </Text>
+        </View>
+      </ScrollView>
+
+      <TouchableOpacity style={[s.fab, { bottom: bottomPad + 24 }]} onPress={handleNewFile}>
+        <Feather name="plus" size={24} color={colors.primaryForeground} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const createStyles = (
+  colors: ReturnType<typeof useColors>,
+  topPad: number,
+  bottomPad: number
+) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: topPad + 16,
+      paddingBottom: 12,
+      paddingHorizontal: 20,
+    },
+    appTitle: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: colors.foreground,
+      letterSpacing: -0.5,
+    },
+    appSubtitle: {
+      fontSize: 13,
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
+    newBtn: {
+      width: 40,
+      height: 40,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 20,
+      marginBottom: 16,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    searchIcon: {},
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      padding: 0,
+    },
+    openSection: {
+      paddingHorizontal: 20,
+      marginBottom: 8,
+    },
+    openFromDevice: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: "rgba(94,234,212,0.08)",
+      borderWidth: 1,
+      borderColor: "rgba(94,234,212,0.18)",
+      borderRadius: 14,
+      padding: 16,
+    },
+    openFileLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    openFileTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    openFileDetail: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    filesBadge: {
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    filesBadgeText: {
+      color: colors.primaryForeground,
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.mutedForeground,
+      letterSpacing: 0.8,
+      textTransform: "uppercase",
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      marginTop: 8,
+    },
+    emptyState: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 60,
+      gap: 12,
+    },
+    emptyText: {
+      fontSize: 15,
+      textAlign: "center",
+      paddingHorizontal: 40,
+    },
+    privacyCard: {
+      margin: 20,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 16,
+      padding: 16,
+      gap: 10,
+    },
+    privacyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    privacyTitle: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    offlineBadge: {
+      backgroundColor: colors.muted,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    offlineBadgeText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    privacyDesc: {
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    fab: {
+      position: "absolute",
+      right: 24,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: colors.primary,
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 8,
+    },
+  });

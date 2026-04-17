@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "pqSUCNC67YbhEU6qfTJcM"
+uri = "file://artifacts/markdown-editor/assets/images/icon.png"
+type = "image"
+title = "markdown editor app icon"

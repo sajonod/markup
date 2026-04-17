@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minimalist Markdown Editor Mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0d0f;
+      --panel: #111317;
+      --panel-2: #171a1f;
+      --panel-3: #1c2026;
+      --stroke: rgba(255,255,255,.08);
+      --muted: #8b93a1;
+      --text: #f5f7fb;
+      --accent: #5eead4;
+      --accent-2: #2dd4bf;
+      --success: #86efac;
+      --warn: #fbbf24;
+      --danger: #fb7185;
+      --shadow: 0 24px 80px rgba(0,0,0,.45);
+      --radius: 28px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(45,212,191,.12), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(94,234,212,.08), transparent 35%),
+        var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1500px; margin: 0 auto; padding: 48px 28px 80px; }
+    .hero { display: grid; gap: 12px; margin-bottom: 36px; }
+    .eyebrow {
+      color: var(--accent); text-transform: uppercase; letter-spacing: .18em; font-size: 12px; font-weight: 700;
+    }
+    h1 { margin: 0; font-size: clamp(36px, 5vw, 62px); line-height: 1.02; max-width: 10ch; }
+    .sub { max-width: 72ch; color: #b4bcc8; font-size: 18px; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr)); gap: 26px; }
+    .screen {
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border: 1px solid var(--stroke);
+      border-radius: 36px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .label { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 12px 6px; letter-spacing: .08em; text-transform: uppercase; }
+    .phone {
+      position: relative; overflow: hidden; aspect-ratio: 9 / 19.5; border-radius: var(--radius);
+      background: linear-gradient(180deg, #0e1116, #090b0f);
+      border: 1px solid rgba(255,255,255,.06);
+      padding: 14px;
+    }
+    .device {
+      height: 100%; border-radius: 24px; background: linear-gradient(180deg, #12151b 0%, #0f1318 100%);
+      border: 1px solid rgba(255,255,255,.06); overflow: hidden; position: relative;
+    }
+    .status { display:flex; justify-content:space-between; padding: 10px 16px 6px; color:#cfd6e1; font-size:12px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; padding: 10px 16px 14px; }
+    .iconbtn, .chip {
+      border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); color: var(--text);
+      border-radius: 14px; padding: 10px 12px; font-size: 12px;
+    }
+    .title { display:grid; gap:4px; text-align:center; }
+    .title strong { font-size: 15px; }
+    .title span { font-size: 11px; color: var(--muted); }
+    .content { padding: 0 16px 16px; }
+    .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 16px 0 10px; }
+    .list { display:grid; gap:10px; }
+    .row {
+      background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 18px;
+      padding: 14px; display:flex; align-items:center; justify-content:space-between; gap: 12px;
+    }
+    .row .meta { display:grid; gap:4px; }
+    .row .meta strong { font-size: 14px; }
+    .row .meta span { color: var(--muted); font-size: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 6px rgba(94,234,212,.12); }
+    .editor {
+      margin: 0 16px; background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border: 1px solid rgba(255,255,255,.05); border-radius: 22px; padding: 18px 18px 110px;
+      min-height: 63%; position: relative;
+    }
+    .markdown { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; color: #c3cad4; }
+    .markdown .faded { color: rgba(195,202,212,.32); }
+    .rendered h2 { margin: 2px 0 12px; font-size: 28px; }
+    .rendered p { margin: 0 0 14px; color: #d4d8df; font-size: 15px; line-height: 1.7; }
+    .check { display:flex; align-items:flex-start; gap: 10px; margin: 12px 0; color:#eef2f7; }
+    .box { width: 18px; height: 18px; border-radius: 6px; border:1px solid rgba(255,255,255,.18); margin-top: 2px; }
+    .box.done { background: rgba(134,239,172,.16); border-color: rgba(134,239,172,.6); }
+    .code {
+      margin-top: 16px; background: #0b0d11; border: 1px solid rgba(94,234,212,.16); border-radius: 16px;
+      padding: 14px; font-family: 'JetBrains Mono', monospace; color: #95f9eb; font-size: 12px; line-height: 1.6;
+    }
+    .toolbar {
+      position:absolute; left: 12px; right: 12px; bottom: 12px; background: rgba(16,19,25,.94); backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,.07); border-radius: 18px; padding: 10px; display:flex; gap: 8px; flex-wrap: wrap;
+    }
+    .tool {
+      min-width: 42px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+      text-align:center; font-size: 12px; color: #ecf1f8;
+    }
+    .banner {
+      position:absolute; left: 14px; right: 14px; bottom: 14px; background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(94,234,212,.07));
+      border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px 14px; display:flex; align-items:center; justify-content:space-between;
+      font-size: 12px; color: #d8dee8;
+    }
+    .pill { font-size: 11px; color: #0f1115; background: var(--accent); padding: 6px 10px; border-radius: 999px; font-weight: 700; }
+    .split { display:grid; grid-template-columns: 1.08fr .92fr; gap: 12px; }
+    .preview-card { border-radius: 20px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); padding: 16px; }
+    .metric { display:flex; gap:10px; align-items:center; }
+    .metric b { font-size: 13px; }
+    .muted { color: var(--muted); }
+    .mini-tabs { display:flex; gap:8px; margin-bottom: 14px; }
+    .mini-tabs span { padding: 8px 12px; border-radius: 999px; font-size: 12px; background: rgba(255,255,255,.04); color: var(--muted); }
+    .mini-tabs .active { background: rgba(94,234,212,.14); color: var(--accent); border:1px solid rgba(94,234,212,.24); }
+    .footer-note { margin-top: 28px; color: #9ea6b3; font-size: 14px; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Developer handoff screens</div>
+      <h1>Minimalist Markdown Editor mobile mockups</h1>
+      <div class="sub">These screens translate the product spec into a sleek, dark-first UI system focused on instant file access, a hybrid Markdown editor, offline privacy messaging, and a lightweight monetization pattern that never interrupts active writing.</div>
+    </section>
+
+    <section class="grid">
+      <article class="screen">
+        <p class="label">01 / Recent files</p>
+        <div class="phone"><div class="device">
+          <div class="status"><span>9:41</span><span>LTE • 100%</span></div>
+          <div class="topbar">
+            <button class="iconbtn">☰</button>
+            <div class="title"><strong>Vault</strong><span>Offline markdown files</span></div>
+            <button class="iconbtn">＋</button>
+          </div>
+          <div class="content">
+            <div class="row" style="margin-bottom:12px; background:rgba(94,234,212,.08); border-color: rgba(94,234,212,.18);">
+              <div class="meta"><strong>Open from device</strong><span>.md · .txt · .markdown</span></div>
+              <div class="pill">Files</div>
+            </div>
+            <div class="section-title">Recent</div>
+            <div class="list">
+              <div class="row"><div style="display:flex; gap:12px; align-items:center;"><div class="dot"></div><div class="meta"><strong>Daily Journal.md</strong><span>Edited 2m ago · Auto-saved</span></div></div><span class="chip">12 KB</span></div>
+              <div class="row"><div style="display:flex; gap:12px; align-items:center;"><div class="dot" style="background:#93c5fd; box-shadow:0 0 0 6px rgba(147,197,253,.12)"></div><div class="meta"><strong>API Notes.markdown</strong><span>Yesterday · Code blocks</span></div></div><span class="chip">31 KB</span></div>
+              <div class="row"><div style="display:flex; gap:12px; align-items:center;"><div class="dot" style="background:#fbbf24; box-shadow:0 0 0 6px rgba(251,191,36,.12)"></div><div class="meta"><strong>Lecture Summary.txt</strong><span>Today · Synced locally</span></div></div><span class="chip">9 KB</span></div>
+            </div>
+            <div class="section-title">Privacy</div>
+            <div class="preview-card">
+              <div class="metric"><div class="pill" style="background:#1d2937; color:#d9fdf8;">Offline</div><b>Nothing leaves your device</b></div>
+              <p class="muted" style="margin:10px 0 0; font-size:13px; line-height:1.6;">No account, no sync lock-in, no network dependency.</p>
+            </div>
+          </div>
+          <div class="banner"><span>Sponsored · Local backup drive</span><span>Open</span></div>
+        </div></div>
+      </article>
+
+      <article class="screen">
+        <p class="label">02 / Hybrid editor</p>
+        <div class="phone"><div class="device">
+          <div class="status"><span>9:41</span><span>LTE • 100%</span></div>
+          <div class="topbar">
+            <button class="iconbtn">‹</button>
+            <div class="title"><strong>Daily Journal.md</strong><span>Saved just now</span></div>
+            <button class="iconbtn">⋯</button>
+          </div>
+          <div class="editor">
+            <div class="markdown"><span class="faded"># </span>Daily Reflection<br><br>
+            Wrote for 30 minutes without distraction.<br><br>
+            <span class="faded">- [ ] </span>Review ideas<br>
+            <span class="faded">- [x] </span>Finish first draft<br><br>
+            <span class="faded">```js</span></div>
+            <div class="rendered">
+              <h2>Daily Reflection</h2>
+              <p>Wrote for 30 minutes without distraction. Syntax fades away when the line loses focus so the page reads like finished text.</p>
+              <div class="check"><div class="box"></div><div>Review ideas</div></div>
+              <div class="check"><div class="box done"></div><div>Finish first draft</div></div>
+              <div class="code">const save = debounce(writeFile, 180)<br/>save(currentDocument)</div>
+            </div>
+            <div class="toolbar">
+              <div class="tool">H1</div><div class="tool">H2</div><div class="tool">B</div><div class="tool">I</div><div class="tool">[ ]</div><div class="tool">```</div><div class="tool">•</div>
+            </div>
+          </div>
+        </div></div>
+      </article>
+
+      <article class="screen">
+        <p class="label">03 / Preview + structure</p>
+        <div class="phone"><div class="device">
+          <div class="status"><span>9:41</span><span>LTE • 100%</span></div>
+          <div class="topbar">
+            <button class="iconbtn">‹</button>
+            <div class="title"><strong>Project Spec.md</strong><span>Preview mode</span></div>
+            <button class="iconbtn">⇄</button>
+          </div>
+          <div class="content">
+            <div class="mini-tabs"><span>Write</span><span class="active">Preview</span><span>Outline</span></div>
+            <div class="split">
+              <div class="preview-card">
+                <div class="section-title" style="margin-top:0">Outline</div>
+                <div class="list">
+                  <div class="row"><div class="meta"><strong>Product vision</strong><span>H1</span></div></div>
+                  <div class="row"><div class="meta"><strong>Core principles</strong><span>H2</span></div></div>
+                  <div class="row"><div class="meta"><strong>MVP scope</strong><span>H2</span></div></div>
+                </div>
+              </div>
+              <div class="preview-card">
+                <h2 style="margin:0 0 10px; font-size:26px;">Project Spec</h2>
+                <p style="margin:0 0 10px; color:#d3dae4; font-size:14px; line-height:1.7;">Fast, local-first writing for developers and students.</p>
+                <div class="check"><div class="box done"></div><div>Open .md and .txt files</div></div>
+                <div class="check"><div class="box done"></div><div>Auto-save in the background</div></div>
+                <div class="check"><div class="box"></div><div>Premium export later</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="banner"><span>Ad remains visible, never interrupts typing</span><span>Learn</span></div>
+        </div></div>
+      </article>
+
+      <article class="screen">
+        <p class="label">04 / File actions</p>
+        <div class="phone"><div class="device">
+          <div class="status"><span>9:41</span><span>LTE • 100%</span></div>
+          <div class="topbar">
+            <button class="iconbtn">‹</button>
+            <div class="title"><strong>Export & Save</strong><span>Non-disruptive utilities</span></div>
+            <button class="iconbtn">✕</button>
+          </div>
+          <div class="content">
+            <div class="preview-card" style="margin-top: 8px; background:rgba(94,234,212,.07); border-color: rgba(94,234,212,.18);">
+              <div class="metric"><div class="dot"></div><b>Auto-save active</b></div>
+              <p class="muted" style="margin:10px 0 0; font-size:13px;">Changes save on pause and when the app backgrounds.</p>
+            </div>
+            <div class="section-title">Actions</div>
+            <div class="list">
+              <div class="row"><div class="meta"><strong>Rename file</strong><span>Keep original folder location</span></div><span class="chip">Local</span></div>
+              <div class="row"><div class="meta"><strong>Share plain text</strong><span>Use native OS share sheet</span></div><span class="chip">Share</span></div>
+              <div class="row"><div class="meta"><strong>Export PDF</strong><span>Premium-ready future route</span></div><span class="chip" style="background:#27211a;color:#ffd88b;">Plus</span></div>
+            </div>
+            <div class="section-title">State guidance</div>
+            <div class="preview-card">
+              <p style="margin:0; color:#d3dae4; font-size:14px; line-height:1.7;">Interstitials only appear after safe moments like export completion or file close, never during active editing.</p>
+            </div>
+          </div>
+          <div class="banner"><span>Calm monetization layer</span><span>No interruption</span></div>
+        </div></div>
+      </article>
+    </section>
+
+    <p class="footer-note">Suggested implementation style: Flutter or React Native using a dark-first token system, soft teal accent, Inter for interface text, and JetBrains Mono for code/syntax surfaces.</p>
+  </div>
+</body>
+</html>

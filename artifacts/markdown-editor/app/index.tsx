@@ -81,17 +81,10 @@ export default function HomeScreen() {
       }
 
       const content = await new File(asset.uri).text();
-      console.log("File opened successfully:", { name, size: asset.size, contentLength: content.length });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const newFile = importFile(name, content);
-      console.log("File imported:", newFile);
       setActiveFileId(newFile.id);
-      console.log("Navigating to editor with file ID:", newFile.id);
-
-      // Small delay to ensure state is updated
-      setTimeout(() => {
-        router.push("/editor");
-      }, 100);
+      router.push("/editor");
     } catch (error) {
       console.error("File opening error:", error);
       let errorMessage = "Could not open the file. Please try again.";

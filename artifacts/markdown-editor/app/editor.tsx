@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -28,6 +28,16 @@ export default function EditorScreen() {
   const { getActiveFile, saveFile } = useFiles();
 
   const file = getActiveFile();
+  console.log("Editor: active file:", file);
+
+  // If no file is found, go back to home
+  useEffect(() => {
+    if (!file) {
+      console.log("Editor: no active file found, going back to home");
+      router.replace("/");
+    }
+  }, [file]);
+
   const [content, setContent] = useState(file?.content ?? "");
   const [mode, setMode] = useState<EditorMode>("write");
   const [saveStatus, setSaveStatus] = useState("Saved");
@@ -41,6 +51,7 @@ export default function EditorScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   useEffect(() => {
+    console.log("Editor: file changed:", file?.id, file?.name);
     if (file) setContent(file.content);
   }, [file?.id]);
 
@@ -149,19 +160,15 @@ export default function EditorScreen() {
       return;
     }
     try {
-      const cacheDir = (FileSystem as any).cacheDirectory;
-      if (!cacheDir) throw new Error("No cache directory available");
-
+      const cacheDir = Paths.cache;
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = cacheDir + safeName;
+      const outputFile = new File(cacheDir, safeName);
 
-      await FileSystem.writeAsStringAsync(filePath, content, {
-        encoding: (FileSystem as any).EncodingType.UTF8,
-      });
+      await outputFile.write(content);
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(filePath, {
+        await Sharing.shareAsync(outputFile.uri, {
           mimeType: "text/plain",
           dialogTitle: `Save "${file.name}"`,
           UTI: "public.plain-text",

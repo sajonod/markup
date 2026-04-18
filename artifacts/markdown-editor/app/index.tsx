@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -74,13 +74,39 @@ export default function HomeScreen() {
         return;
       }
 
-      const content = await FileSystem.readAsStringAsync(asset.uri);
+      // Check file size (limit to 10MB)
+      if (asset.size && asset.size > 10 * 1024 * 1024) {
+        Alert.alert("File too large", "Please select a file smaller than 10MB.");
+        return;
+      }
+
+      const content = await new File(asset.uri).text();
+      console.log("File opened successfully:", { name, size: asset.size, contentLength: content.length });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const newFile = importFile(name, content);
+      console.log("File imported:", newFile);
       setActiveFileId(newFile.id);
-      router.push("/editor");
-    } catch {
-      Alert.alert("Error", "Could not open the file. Please try again.");
+      console.log("Navigating to editor with file ID:", newFile.id);
+
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        router.push("/editor");
+      }, 100);
+    } catch (error) {
+      console.error("File opening error:", error);
+      let errorMessage = "Could not open the file. Please try again.";
+
+      if (error instanceof Error) {
+        if (error.message.includes("encoding")) {
+          errorMessage = "File encoding not supported. Please ensure the file is UTF-8 encoded.";
+        } else if (error.message.includes("permission") || error.message.includes("access")) {
+          errorMessage = "Permission denied. Please check file permissions and try again.";
+        } else if (error.message.includes("size") || error.message.includes("large")) {
+          errorMessage = "File is too large to open. Please select a smaller file.";
+        }
+      }
+
+      Alert.alert("Error opening file", errorMessage);
     }
   };
 

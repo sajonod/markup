@@ -22,6 +22,8 @@ export interface FileEntry {
   updatedAt: number;
   createdAt: number;
   versions: FileVersion[];
+  sourceUri: string | null;
+  savedUri: string | null;
 }
 
 interface FilesContextValue {
@@ -29,10 +31,15 @@ interface FilesContextValue {
   activeFileId: string | null;
   setActiveFileId: (id: string | null) => void;
   createFile: (name?: string) => FileEntry;
-  importFile: (name: string, content: string) => FileEntry;
+  importFile: (
+    name: string,
+    content: string,
+    options?: { sourceUri?: string | null; savedUri?: string | null }
+  ) => FileEntry;
   saveFile: (id: string, content: string) => void;
   deleteFile: (id: string) => void;
   renameFile: (id: string, name: string) => void;
+  updateFileStorage: (id: string, updates: { sourceUri?: string | null; savedUri?: string | null }) => void;
   revertToVersion: (fileId: string, versionId: string) => void;
   getActiveFile: () => FileEntry | null;
 }
@@ -50,6 +57,24 @@ function formatSize(bytes: number): number {
   return Math.max(1, Math.round(bytes / 1024));
 }
 
+function createVersion(file: FileEntry): FileVersion {
+  return {
+    id: generateId(),
+    timestamp: file.updatedAt,
+    content: file.content,
+    summary: `Saved ${new Date(file.updatedAt).toLocaleTimeString()}`,
+  };
+}
+
+function normalizeFile(file: FileEntry): FileEntry {
+  return {
+    ...file,
+    sourceUri: file.sourceUri ?? null,
+    savedUri: file.savedUri ?? null,
+    versions: file.versions ?? [],
+  };
+}
+
 const SAMPLE_FILES: FileEntry[] = [
   {
     id: "sample-1",
@@ -59,6 +84,8 @@ const SAMPLE_FILES: FileEntry[] = [
     updatedAt: Date.now() - 2 * 60 * 1000,
     createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
     versions: [],
+    sourceUri: null,
+    savedUri: null,
   },
   {
     id: "sample-2",
@@ -81,6 +108,8 @@ const SAMPLE_FILES: FileEntry[] = [
         summary: "Updated the title",
       },
     ],
+    sourceUri: null,
+    savedUri: null,
   },
   {
     id: "sample-3",
@@ -90,6 +119,8 @@ const SAMPLE_FILES: FileEntry[] = [
     updatedAt: Date.now() - 3 * 60 * 60 * 1000,
     createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
     versions: [],
+    sourceUri: null,
+    savedUri: null,
   },
 ];
 
@@ -104,7 +135,7 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         const active = await AsyncStorage.getItem(ACTIVE_KEY);
         if (stored) {
-          setFiles(JSON.parse(stored));
+          setFiles(JSON.parse(stored).map(normalizeFile));
         } else {
           setFiles(SAMPLE_FILES);
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_FILES));
@@ -135,6 +166,8 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         updatedAt: Date.now(),
         createdAt: Date.now(),
         versions: [],
+        sourceUri: null,
+        savedUri: null,
       };
       setFiles((prev) => {
         const updated = [newFile, ...prev];
@@ -147,7 +180,7 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
   );
 
   const importFile = useCallback(
-    (name: string, content: string): FileEntry => {
+    (name: string, content: string, options?: { sourceUri?: string | null; savedUri?: string | null }): FileEntry => {
       const newFile: FileEntry = {
         id: generateId(),
         name,
@@ -156,6 +189,8 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         updatedAt: Date.now(),
         createdAt: Date.now(),
         versions: [],
+        sourceUri: options?.sourceUri ?? null,
+        savedUri: options?.savedUri ?? null,
       };
       setFiles((prev) => {
         const updated = [newFile, ...prev];
@@ -172,13 +207,15 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
       setFiles((prev) => {
         const updated = prev.map((f) => {
           if (f.id !== id) return f;
-          const prevVersion: FileVersion = {
-            id: generateId(),
-            timestamp: f.updatedAt,
-            content: f.content,
-            summary: `Saved ${new Date(f.updatedAt).toLocaleTimeString()}`,
-          };
-          const versions = [prevVersion, ...f.versions].slice(0, 20);
+          if (f.content === content) {
+            return f;
+          }
+
+          const versions =
+            f.versions[0]?.content === f.content
+              ? f.versions
+              : [createVersion(f), ...f.versions].slice(0, 20);
+
           return {
             ...f,
             content,
@@ -201,7 +238,15 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         persist(updated);
         return updated;
       });
-      setActiveFileId((prev) => (prev === id ? null : prev));
+
+      setActiveFileId((prev) => {
+        if (prev !== id) {
+          return prev;
+        }
+
+        void AsyncStorage.removeItem(ACTIVE_KEY).catch(() => {});
+        return null;
+      });
     },
     [persist]
   );
@@ -219,17 +264,38 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
     [persist]
   );
 
+  const updateFileStorage = useCallback(
+    (id: string, updates: { sourceUri?: string | null; savedUri?: string | null }) => {
+      setFiles((prev) => {
+        const updated = prev.map((f) =>
+          f.id === id
+            ? {
+                ...f,
+                ...(updates.sourceUri !== undefined ? { sourceUri: updates.sourceUri } : null),
+                ...(updates.savedUri !== undefined ? { savedUri: updates.savedUri } : null),
+              }
+            : f
+        );
+        persist(updated);
+        return updated;
+      });
+    },
+    [persist]
+  );
+
   const revertToVersion = useCallback(
     (fileId: string, versionId: string) => {
       setFiles((prev) => {
         const updated = prev.map((f) => {
           if (f.id !== fileId) return f;
           const version = f.versions.find((v) => v.id === versionId);
-          if (!version) return f;
+          if (!version || version.content === f.content) return f;
           return {
             ...f,
             content: version.content,
+            size: formatSize(version.content.length),
             updatedAt: Date.now(),
+            versions: [createVersion(f), ...f.versions.filter((v) => v.id !== versionId)].slice(0, 20),
           };
         });
         persist(updated);
@@ -271,6 +337,7 @@ export function FilesProvider({ children }: { children: React.ReactNode }) {
         saveFile,
         deleteFile,
         renameFile,
+        updateFileStorage,
         revertToVersion,
         getActiveFile,
       }}

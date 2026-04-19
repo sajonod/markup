@@ -3,7 +3,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeAdBanner } from "@/components/NativeAdBanner";
 import { BottomAdBanner } from "@/components/BottomAdBanner";
 import { FileRow } from "@/components/FileRow";
+import { FileNameDialog } from "@/components/FileNameDialog";
 import { useFiles } from "@/context/FilesContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -27,12 +28,14 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { files, createFile, deleteFile, setActiveFileId, renameFile, importFile } = useFiles();
   const [search, setSearch] = useState("");
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const filteredFiles = files.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase())
+  const filteredFiles = useMemo(
+    () => files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase())),
+    [files, search]
   );
 
   const handleOpenFile = (id: string) => {
@@ -64,11 +67,16 @@ export default function HomeScreen() {
 
       const asset = result.assets[0];
       const name = asset.name;
+      const lowerName = name.toLowerCase();
+      const mimeType = (asset.mimeType ?? "").toLowerCase();
 
       if (
-        !name.endsWith(".md") &&
-        !name.endsWith(".markdown") &&
-        !name.endsWith(".txt")
+        !lowerName.endsWith(".md") &&
+        !lowerName.endsWith(".markdown") &&
+        !lowerName.endsWith(".txt") &&
+        mimeType !== "text/plain" &&
+        mimeType !== "text/markdown" &&
+        mimeType !== "text/x-markdown"
       ) {
         Alert.alert("Unsupported file", "Please open a .md, .markdown, or .txt file.");
         return;
@@ -82,7 +90,7 @@ export default function HomeScreen() {
 
       const content = await new File(asset.uri).text();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const newFile = importFile(name, content);
+      const newFile = importFile(name, content, { sourceUri: asset.uri });
       setActiveFileId(newFile.id);
       router.push("/editor");
     } catch (error) {
@@ -104,19 +112,13 @@ export default function HomeScreen() {
   };
 
   const handleRename = (id: string, currentName: string) => {
-    if (Platform.OS === "ios") {
-      Alert.prompt(
-        "Rename File",
-        "Enter a new name",
-        (newName) => {
-          if (newName && newName.trim()) renameFile(id, newName.trim());
-        },
-        "plain-text",
-        currentName
-      );
-    } else {
-      Alert.alert("Rename", `Renaming "${currentName}" is supported on iOS. On Android, edit the filename from the editor menu.`);
-    }
+    setRenameTarget({ id, name: currentName });
+  };
+
+  const handleRenameConfirm = (nextName: string) => {
+    if (!renameTarget) return;
+    renameFile(renameTarget.id, nextName);
+    setRenameTarget(null);
   };
 
   const s = createStyles(colors, topPad, bottomPad);
@@ -124,6 +126,15 @@ export default function HomeScreen() {
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />
+      <FileNameDialog
+        visible={renameTarget !== null}
+        title="Rename file"
+        description="Choose a new file name for this document."
+        initialValue={renameTarget?.name ?? ""}
+        confirmLabel="Rename"
+        onCancel={() => setRenameTarget(null)}
+        onConfirm={handleRenameConfirm}
+      />
 
       <View style={s.header}>
         <View>

@@ -146,8 +146,10 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     console.log(`Setting EXPO_PUBLIC_REPL_ID=${expoPublicReplId}`);
   }
 
+  const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
   metroProcess = spawn(
-    "C:\\Users\\user\\AppData\\Roaming\\npm\\pnpm.cmd",
+    pnpmCommand,
     [
       "exec",
       "expo",
@@ -161,7 +163,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
       detached: false,
       cwd: projectRoot,
       env,
-      shell: true,
+      shell: false,
     },
   );
 
@@ -479,8 +481,7 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
       baseUrl.replace("https://", "") + "/" + platform;
     manifest.extra.expoGo.debuggerHost =
       baseUrl.replace("https://", "") + "/" + platform;
-    manifest.extra.expoGo.packagerOpts.
-    dev = false;
+    manifest.extra.expoGo.packagerOpts.dev = false;
 
     if (manifest.assets && manifest.assets.length > 0) {
       manifest.assets.forEach((asset) => {

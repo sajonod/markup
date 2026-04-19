@@ -1,20 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  AppState,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FileNameDialog } from "@/components/FileNameDialog";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { MarkdownToolbar, ToolbarItem } from "@/components/MarkdownToolbar";
 import { useFiles } from "@/context/FilesContext";
@@ -25,7 +28,7 @@ type EditorMode = "write" | "preview" | "outline";
 export default function EditorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { getActiveFile, saveFile } = useFiles();
+  const { getActiveFile, renameFile, saveFile, updateFileStorage } = useFiles();
 
   const file = getActiveFile();
   console.log("Editor: active file:", file);
@@ -39,29 +42,69 @@ export default function EditorScreen() {
   }, [file]);
 
   const [content, setContent] = useState(file?.content ?? "");
-  const [mode, setMode] = useState<EditorMode>("write");
+  const [mode, setMode] = useState<EditorMode>("preview");
   const [saveStatus, setSaveStatus] = useState("Saved");
   const [cursorPos, setCursorPos] = useState(0);
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
+  const [renameVisible, setRenameVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestContentRef = useRef(content);
+  const latestFileIdRef = useRef(file?.id ?? null);
+  const latestSavedContentRef = useRef(file?.content ?? "");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   useEffect(() => {
     console.log("Editor: file changed:", file?.id, file?.name);
-    if (file) setContent(file.content);
+    if (file) {
+      if (file.content !== latestContentRef.current) {
+        setContent(file.content);
+        latestContentRef.current = file.content;
+      }
+      latestSavedContentRef.current = file.content;
+      latestFileIdRef.current = file.id;
+      setSaveStatus("Saved");
+    }
+  }, [file?.content, file?.id]);
+
+  useEffect(() => {
+    latestContentRef.current = content;
+  }, [content]);
+
+  useEffect(() => {
+    latestFileIdRef.current = file?.id ?? null;
   }, [file?.id]);
+
+  const flushSave = useCallback(() => {
+    const fileId = latestFileIdRef.current;
+    const text = latestContentRef.current;
+
+    if (!fileId || latestSavedContentRef.current === text) {
+      return;
+    }
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
+    saveFile(fileId, text);
+    latestSavedContentRef.current = text;
+    setSaveStatus("Saved");
+  }, [saveFile]);
 
   const triggerSave = useCallback(
     (text: string) => {
-      if (!file) return;
+      if (!file?.id) return;
       setSaveStatus("Saving...");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         saveFile(file.id, text);
+        latestSavedContentRef.current = text;
+        saveTimerRef.current = null;
         setSaveStatus("Saved");
       }, 800);
     },
@@ -70,9 +113,21 @@ export default function EditorScreen() {
 
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      flushSave();
     };
-  }, []);
+  }, [flushSave]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") {
+        flushSave();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [flushSave]);
 
   const handleChangeText = (text: string) => {
     setContent(text);
@@ -146,11 +201,61 @@ export default function EditorScreen() {
   };
 
   const handleBack = () => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      if (file) saveFile(file.id, content);
-    }
+    flushSave();
     router.back();
+  };
+
+  const safeFileName = useCallback((name: string) => {
+    const trimmed = name.trim();
+    return trimmed.replace(/[\\/:*?"<>|]/g, "_") || "Untitled.md";
+  }, []);
+
+  const writeToUri = useCallback(async (targetUri: string, text: string) => {
+    const outputFile = new File(targetUri);
+
+    if (!outputFile.exists) {
+      outputFile.create({ overwrite: true });
+    }
+
+    outputFile.write(text);
+    return outputFile;
+  }, []);
+
+  const saveIntoDirectory = useCallback(
+    async (directory: { uri: string }, name: string, text: string) => {
+      const targetFile = new File(directory.uri, safeFileName(name));
+      const savedFile = await writeToUri(targetFile.uri, text);
+      return savedFile;
+    },
+    [safeFileName, writeToUri]
+  );
+
+  const handleShareToOtherApps = async () => {
+    if (!file) return;
+
+    try {
+      flushSave();
+
+      const shareableFile = await writeToUri(
+        new File(Paths.cache, safeFileName(file.name)).uri,
+        latestContentRef.current
+      );
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Share unavailable", "This device cannot open the system share sheet.");
+        return;
+      }
+
+      await Sharing.shareAsync(shareableFile.uri, {
+        mimeType: "text/markdown",
+        dialogTitle: `Share "${file.name}"`,
+        UTI: "net.daringfireball.markdown",
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Share failed", msg || "Could not open other apps for this file.");
+    }
   };
 
   const handleSaveToDevice = async () => {
@@ -160,37 +265,97 @@ export default function EditorScreen() {
       return;
     }
     try {
-      const cacheDir = Paths.cache;
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const outputFile = new File(cacheDir, safeName);
+      flushSave();
 
-      await outputFile.write(content);
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(outputFile.uri, {
-          mimeType: "text/plain",
-          dialogTitle: `Save "${file.name}"`,
-          UTI: "public.plain-text",
-        });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        Alert.alert(
-          "Saved",
-          `"${file.name}" has been written to the app cache. Sharing is not available on this device.`
-        );
+      if (file.savedUri) {
+        await writeToUri(file.savedUri, latestContentRef.current);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Saved", `Updated "${file.name}" on disk.`);
+        return;
       }
+
+      const directory = await Directory.pickDirectoryAsync();
+      if (!directory) return;
+
+      const targetFile = await saveIntoDirectory(
+        directory,
+        file.name,
+        latestContentRef.current
+      );
+      updateFileStorage(file.id, { savedUri: targetFile.uri });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Saved", `Saved "${file.name}" to the selected folder.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       Alert.alert("Save failed", msg || "Could not save the file. Please try again.");
     }
   };
 
+  const handleSaveAs = async () => {
+    if (!file) return;
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported", "Save to device is only available on iOS and Android.");
+      return;
+    }
+
+    try {
+      flushSave();
+      const directory = await Directory.pickDirectoryAsync();
+      if (!directory) return;
+
+      const targetFile = await saveIntoDirectory(
+        directory,
+        file.name,
+        latestContentRef.current
+      );
+      updateFileStorage(file.id, { savedUri: targetFile.uri });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Saved", `Saved "${file.name}" to a new folder.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Save failed", msg || "Could not save the file. Please try again.");
+    }
+  };
+
+  const handleRenameConfirm = async (nextName: string) => {
+    if (!file) return;
+
+    try {
+      if (file.savedUri) {
+        const currentOutput = new File(file.savedUri);
+        const renamedOutput = new File(currentOutput.parentDirectory, nextName);
+
+        if (currentOutput.exists && currentOutput.uri !== renamedOutput.uri) {
+          currentOutput.move(renamedOutput);
+          updateFileStorage(file.id, { savedUri: renamedOutput.uri });
+        }
+      }
+
+      renameFile(file.id, nextName);
+      setRenameVisible(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert("Rename failed", msg || "Could not rename the file.");
+    }
+  };
+
   const handleMenu = () => {
     Alert.alert(file?.name ?? "Options", "File actions", [
       {
-        text: "Save to device / Share",
+        text: "Rename",
+        onPress: () => setRenameVisible(true),
+      },
+      {
+        text: file?.savedUri ? "Save to disk" : "Save to folder",
         onPress: handleSaveToDevice,
+      },
+      {
+        text: "Save as...",
+        onPress: handleSaveAs,
+      },
+      {
+        text: "Open in other apps",
+        onPress: handleShareToOtherApps,
       },
       {
         text: "Version History",
@@ -216,9 +381,18 @@ export default function EditorScreen() {
   return (
     <KeyboardAvoidingView
       style={s.root}
-      behavior="padding"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
+      <FileNameDialog
+        visible={renameVisible}
+        title="Rename file"
+        description="Update the document name used inside the app and for future saves."
+        initialValue={file.name}
+        confirmLabel="Rename"
+        onCancel={() => setRenameVisible(false)}
+        onConfirm={handleRenameConfirm}
+      />
       <View style={s.topbar}>
         <TouchableOpacity onPress={handleBack} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={24} color={colors.foreground} />
@@ -274,21 +448,28 @@ export default function EditorScreen() {
 
       {mode === "write" && (
         <>
-          <TextInput
-            ref={inputRef}
-            style={[s.editor, { color: colors.foreground }]}
-            value={content}
-            onChangeText={handleChangeText}
-            onSelectionChange={handleSelectionChange}
-            multiline
-            autoCorrect={false}
-            autoCapitalize="sentences"
-            spellCheck={false}
-            textAlignVertical="top"
-            scrollEnabled
-            placeholder="Start writing in Markdown..."
-            placeholderTextColor={colors.mutedForeground}
-          />
+          <ScrollView
+            style={s.editorScroll}
+            contentContainerStyle={s.editorScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TextInput
+              ref={inputRef}
+              style={[s.editor, { color: colors.foreground }]}
+              value={content}
+              onChangeText={handleChangeText}
+              onSelectionChange={handleSelectionChange}
+              multiline
+              autoCorrect={false}
+              autoCapitalize="sentences"
+              spellCheck={false}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              placeholder="Start writing in Markdown..."
+              placeholderTextColor={colors.mutedForeground}
+            />
+          </ScrollView>
           <MarkdownToolbar onAction={handleToolbarAction} />
           {/* Bottom safe area spacer so toolbar clears nav bar */}
           <View style={{ height: bottomPad, backgroundColor: colors.card }} />
@@ -435,11 +616,18 @@ const createStyles = (
       fontWeight: "500",
     },
     editor: {
-      flex: 1,
       fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
       fontSize: 14,
       lineHeight: 24,
-      padding: 20,
+      minHeight: 320,
       textAlignVertical: "top",
+    },
+    editorScroll: {
+      flex: 1,
+    },
+    editorScrollContent: {
+      padding: 20,
+      paddingBottom: 32,
+      flexGrow: 1,
     },
   });

@@ -78,7 +78,7 @@ function normalizeFile(file: FileEntry): FileEntry {
 const SAMPLE_FILES: FileEntry[] = [
   {
     id: "sample-1",
-    name: "Daily Journal.md",
+    name: "Sample_Daily Journal.md",
     content: `# Daily Journal\n\nWrote for 30 minutes without distraction. Feeling focused and clear.\n\n## Tasks\n\n- [x] Finish first draft\n- [ ] Review ideas\n- [ ] Send weekly update\n\n## Notes\n\nSomething I read today that stuck with me:\n\n> "The secret of getting ahead is getting started."\n\n\`\`\`js\nconst save = debounce(writeFile, 180);\nsave(currentDocument);\n\`\`\`\n`,
     size: 12,
     updatedAt: Date.now() - 2 * 60 * 1000,
@@ -89,7 +89,7 @@ const SAMPLE_FILES: FileEntry[] = [
   },
   {
     id: "sample-2",
-    name: "Project Spec.md",
+    name: "Sample_Project Spec.md",
     content: `# Product Vision\n\nFast, local-first writing for developers and students.\n\n## Core Principles\n\n- Zero friction experience\n- Markdown-first, not markdown-only\n- Privacy by design\n\n## MVP Scope\n\n- [x] Open .md and .txt files\n- [x] WYSIWYG-lite editor\n- [ ] Export to PDF\n- [ ] Sync across devices\n\n## Tech Stack\n\n\`\`\`\nReact Native + Expo\nAsyncStorage for persistence\nCustom markdown parser\n\`\`\`\n`,
     size: 31,
     updatedAt: Date.now() - 24 * 60 * 60 * 1000,
@@ -108,17 +108,6 @@ const SAMPLE_FILES: FileEntry[] = [
         summary: "Updated the title",
       },
     ],
-    sourceUri: null,
-    savedUri: null,
-  },
-  {
-    id: "sample-3",
-    name: "Lecture Notes.txt",
-    content: `# Lecture Summary\n\nKey takeaways from today's session:\n\n## Main Topics\n\n- Algorithms and complexity\n- Graph traversal (BFS, DFS)\n- Dynamic programming patterns\n\n## Code Examples\n\n\`\`\`python\ndef bfs(graph, start):\n    visited = set()\n    queue = [start]\n    while queue:\n        node = queue.pop(0)\n        if node not in visited:\n            visited.add(node)\n            queue.extend(graph[node])\n    return visited\n\`\`\`\n\n## Next Steps\n\n- [ ] Review chapter 7\n- [ ] Complete problem set 3\n`,
-    size: 9,
-    updatedAt: Date.now() - 3 * 60 * 60 * 1000,
-    createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    versions: [],
     sourceUri: null,
     savedUri: null,
   },

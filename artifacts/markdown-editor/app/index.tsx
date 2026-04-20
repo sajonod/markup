@@ -212,18 +212,6 @@ export default function HomeScreen() {
             );
           })
         )}
-
-        <View style={s.privacyCard}>
-          <View style={s.privacyRow}>
-            <View style={s.offlineBadge}>
-              <Text style={s.offlineBadgeText}>Offline</Text>
-            </View>
-            <Text style={[s.privacyTitle, { color: colors.foreground }]}>Nothing leaves your device</Text>
-          </View>
-          <Text style={[s.privacyDesc, { color: colors.mutedForeground }]}>
-            No account, no sync lock-in, no network dependency.
-          </Text>
-        </View>
       </ScrollView>
 
       {/* Bottom ad banner — sits above system nav bar */}

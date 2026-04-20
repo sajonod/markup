@@ -213,17 +213,15 @@ export default function EditorScreen() {
   const writeToUri = useCallback(async (targetUri: string, text: string) => {
     const outputFile = new File(targetUri);
 
-    if (!outputFile.exists) {
-      outputFile.create({ overwrite: true });
-    }
-
+    outputFile.create({ overwrite: true });
     outputFile.write(text);
     return outputFile;
   }, []);
 
   const saveIntoDirectory = useCallback(
     async (directory: { uri: string }, name: string, text: string) => {
-      const targetFile = new File(directory.uri, safeFileName(name));
+      const safeName = safeFileName(name);
+      const targetFile = new File(directory.uri, safeName);
       const savedFile = await writeToUri(targetFile.uri, text);
       return savedFile;
     },

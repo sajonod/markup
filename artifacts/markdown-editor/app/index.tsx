@@ -51,14 +51,15 @@ export default function HomeScreen() {
     router.push("/editor");
   };
 
-  const handleOpenFromDevice = async () => {
+  const handleOpenDocument = async () => {
     if (Platform.OS === "web") {
       Alert.alert("Not supported", "File picker is only available on iOS and Android.");
       return;
     }
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["text/plain", "text/markdown", "*/*"],
+        // Using */* to ensure all cloud providers (Drive, iCloud, etc.) are available in the system picker
+        type: "*/*",
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -70,14 +71,12 @@ export default function HomeScreen() {
       const lowerName = name.toLowerCase();
       const mimeType = (asset.mimeType ?? "").toLowerCase();
 
-      if (
-        !lowerName.endsWith(".md") &&
-        !lowerName.endsWith(".markdown") &&
-        !lowerName.endsWith(".txt") &&
-        mimeType !== "text/plain" &&
-        mimeType !== "text/markdown" &&
-        mimeType !== "text/x-markdown"
-      ) {
+      // Check for markdown/text files
+      const isMarkdown = lowerName.endsWith(".md") || lowerName.endsWith(".markdown");
+      const isText = lowerName.endsWith(".txt") || mimeType === "text/plain";
+      const isSupportedMime = mimeType === "text/markdown" || mimeType === "text/x-markdown";
+
+      if (!isMarkdown && !isText && !isSupportedMime) {
         Alert.alert("Unsupported file", "Please open a .md, .markdown, or .txt file.");
         return;
       }
@@ -170,12 +169,12 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={s.openSection}>
-          <TouchableOpacity style={s.openFromDevice} onPress={handleOpenFromDevice}>
+          <TouchableOpacity style={s.openFromDevice} onPress={handleOpenDocument}>
             <View style={s.openFileLeft}>
               <Ionicons name="folder-open" size={20} color={colors.primary} />
               <View>
-                <Text style={[s.openFileTitle, { color: colors.foreground }]}>Open from device</Text>
-                <Text style={[s.openFileDetail, { color: colors.mutedForeground }]}>.md · .txt · .markdown</Text>
+                <Text style={[s.openFileTitle, { color: colors.foreground }]}>Open markdown file</Text>
+                <Text style={[s.openFileDetail, { color: colors.mutedForeground }]}>Browse device & cloud</Text>
               </View>
             </View>
             <View style={s.filesBadge}>

@@ -31,12 +31,10 @@ export default function EditorScreen() {
   const { getActiveFile, renameFile, saveFile, updateFileStorage } = useFiles();
 
   const file = getActiveFile();
-  console.log("Editor: active file:", file);
 
   // If no file is found, go back to home
   useEffect(() => {
     if (!file) {
-      console.log("Editor: no active file found, going back to home");
       router.replace("/");
     }
   }, [file]);
@@ -58,7 +56,6 @@ export default function EditorScreen() {
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
   useEffect(() => {
-    console.log("Editor: file changed:", file?.id, file?.name);
     if (file) {
       if (file.content !== latestContentRef.current) {
         setContent(file.content);
@@ -212,9 +209,13 @@ export default function EditorScreen() {
 
   const writeToUri = useCallback(async (targetUri: string, text: string) => {
     const outputFile = new File(targetUri);
-
-    outputFile.create({ overwrite: true });
-    outputFile.write(text);
+    // Explicitly check and use overwrite to handle "already exists" errors gracefully
+    if (outputFile.exists) {
+      outputFile.write(text);
+    } else {
+      outputFile.create({ overwrite: true });
+      outputFile.write(text);
+    }
     return outputFile;
   }, []);
 
@@ -222,6 +223,7 @@ export default function EditorScreen() {
     async (directory: { uri: string }, name: string, text: string) => {
       const safeName = safeFileName(name);
       const targetFile = new File(directory.uri, safeName);
+      // Ensure we handle the case where the file might already exist in the chosen directory
       const savedFile = await writeToUri(targetFile.uri, text);
       return savedFile;
     },
@@ -256,7 +258,7 @@ export default function EditorScreen() {
     }
   };
 
-  const handleSaveToDevice = async () => {
+  const handleSaveToFolder = async () => {
     if (!file) return;
     if (Platform.OS === "web") {
       Alert.alert("Not supported", "Save to device is only available on iOS and Android.");
@@ -265,6 +267,7 @@ export default function EditorScreen() {
     try {
       flushSave();
 
+      // If we already have a URI linked, just update it
       if (file.savedUri) {
         await writeToUri(file.savedUri, latestContentRef.current);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -272,6 +275,7 @@ export default function EditorScreen() {
         return;
       }
 
+      // Otherwise pick a directory
       const directory = await Directory.pickDirectoryAsync();
       if (!directory) return;
 
@@ -285,6 +289,26 @@ export default function EditorScreen() {
       Alert.alert("Saved", `Saved "${file.name}" to the selected folder.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Handle the "already exists" error explicitly if it comes from the system
+      if (msg.includes("already exists")) {
+         Alert.alert("File exists", "A file with this name already exists in that folder. Do you want to overwrite it?", [
+           { text: "Cancel", style: "cancel" },
+           {
+             text: "Overwrite",
+             onPress: async () => {
+               try {
+                 const directory = await Directory.pickDirectoryAsync();
+                 if (!directory) return;
+                 const targetFile = new File(directory.uri, safeFileName(file.name));
+                 targetFile.write(latestContentRef.current);
+                 updateFileStorage(file.id, { savedUri: targetFile.uri });
+                 Alert.alert("Saved", "File overwritten successfully.");
+               } catch (e) {}
+             }
+           }
+         ]);
+         return;
+      }
       Alert.alert("Save failed", msg || "Could not save the file. Please try again.");
     }
   };
@@ -308,7 +332,7 @@ export default function EditorScreen() {
       );
       updateFileStorage(file.id, { savedUri: targetFile.uri });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Saved", `Saved "${file.name}" to a new folder.`);
+      Alert.alert("Saved", `Saved "${file.name}" to a new location.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       Alert.alert("Save failed", msg || "Could not save the file. Please try again.");
@@ -344,15 +368,15 @@ export default function EditorScreen() {
         onPress: () => setRenameVisible(true),
       },
       {
-        text: file?.savedUri ? "Save to disk" : "Save to folder",
-        onPress: handleSaveToDevice,
+        text: file?.savedUri ? "Sync with Folder" : "Save to Folder (Local/Cloud)",
+        onPress: handleSaveToFolder,
       },
       {
         text: "Save as...",
         onPress: handleSaveAs,
       },
       {
-        text: "Open in other apps",
+        text: "Share / Open with...",
         onPress: handleShareToOtherApps,
       },
       {
